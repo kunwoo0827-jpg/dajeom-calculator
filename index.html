@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#11131a" />
+<title>대충 계산기™</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0c0e13;
+    --panel: #151923;
+    --panel-2: #1c2230;
+    --line: rgba(255,255,255,.09);
+    --text: #f4f6fb;
+    --muted: #929bad;
+    --lime: #d8ff67;
+    --pink: #ff7a9e;
+    --blue: #9eb8ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 22px 14px;
+    color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: radial-gradient(ellipse at 15% 0%, rgba(158,184,255,.13), transparent 34%),
+                radial-gradient(ellipse at 100% 100%, rgba(216,255,103,.08), transparent 28%), var(--bg);
+  }
+  .app { width: min(100%, 410px); }
+  .topline { display:flex; align-items:center; justify-content:space-between; margin: 0 3px 14px; gap: 12px; }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .logo { width:42px; height:42px; display:grid; place-items:center; border-radius:14px; background:var(--lime); color:#10140a; font-size:22px; box-shadow:0 6px 24px rgba(216,255,103,.16); }
+  h1 { margin:0; font-size:21px; letter-spacing:-.7px; }
+  .subtitle { margin-top:3px; color:var(--muted); font-size:11px; letter-spacing:.3px; }
+  .status { white-space:nowrap; font-size:10px; font-weight:800; padding:7px 9px; border-radius:999px; color:var(--lime); border:1px solid rgba(216,255,103,.25); background:rgba(216,255,103,.07); }
+  .calc { padding:16px; border-radius:26px; border:1px solid var(--line); background:linear-gradient(155deg, rgba(255,255,255,.045), rgba(255,255,255,.012)), var(--panel); box-shadow:0 26px 90px rgba(0,0,0,.32); }
+  .screen { padding:17px 15px 15px; min-height:152px; display:flex; flex-direction:column; justify-content:space-between; border-radius:19px; background:#0b0e14; border:1px solid rgba(255,255,255,.055); margin-bottom:13px; overflow:hidden; }
+  .screen-head { display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:11px; }
+  .screen-head span:last-child { color:var(--pink); font-weight:750; letter-spacing:.5px; }
+  .expression { margin-top:19px; font-size:clamp(25px, 7vw, 32px); font-weight:600; letter-spacing:-.6px; text-align:right; min-height:42px; overflow-x:auto; white-space:nowrap; scrollbar-width:thin; }
+  .expression.placeholder { color:#687184; }
+  .result-line { margin-top:8px; text-align:right; font-size:30px; line-height:1.1; min-height:34px; font-weight:800; color:var(--lime); letter-spacing:-1px; overflow-wrap:anywhere; }
+  .translation { margin-top:12px; font-size:11px; text-align:right; color:var(--blue); min-height:15px; overflow-wrap:anywhere; }
+  .keys { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
+  button { border:1px solid rgba(255,255,255,.035); font:inherit; cursor:pointer; border-radius:15px; height:58px; color:var(--text); background:var(--panel-2); font-size:19px; font-weight:650; transition:transform .1s ease, filter .15s ease, background .15s ease; -webkit-tap-highlight-color:transparent; }
+  button:hover { filter:brightness(1.13); }
+  button:active { transform:scale(.96); }
+  button:focus-visible { outline:2px solid var(--lime); outline-offset:2px; }
+  .muted-key { color:#a5aec0; background:#252a36; }
+  .operator { color:var(--lime); background:rgba(216,255,103,.09); border-color:rgba(216,255,103,.10); }
+  .equals { grid-column:span 2; color:#10140a; background:var(--lime); font-size:22px; }
+  .wide { grid-column:span 2; }
+  .hint { margin:13px 3px 0; display:flex; align-items:flex-start; gap:9px; color:var(--muted); font-size:11px; line-height:1.55; }
+  .hint-icon { color:var(--lime); font-size:14px; }
+  .rules { margin-top:16px; padding:14px 15px; border-radius:18px; background:rgba(255,255,255,.025); border:1px solid var(--line); }
+  .rules-title { display:flex; align-items:center; justify-content:space-between; margin-bottom:11px; font-size:12px; font-weight:750; }
+  .rules-title small { font-weight:500; color:var(--muted); font-size:10px; }
+  .map { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; }
+  .map-item { background:rgba(255,255,255,.035); border-radius:11px; text-align:center; padding:9px 4px; }
+  .map-item .from { font-size:15px; font-weight:800; }
+  .map-item .arrow { color:var(--muted); font-size:10px; margin:3px 0; }
+  .map-item .to { color:var(--pink); font-size:15px; font-weight:800; }
+  .footer { text-align:center; margin:14px 0 0; color:#70798b; font-size:10px; }
+  .footer strong { color:#a3adbf; font-weight:600; }
+  @media (max-width:360px) { .calc{padding:11px}.keys{gap:7px}button{height:53px;border-radius:13px}.rules{padding:12px}.status{font-size:9px} }
+  @media (prefers-reduced-motion: reduce) { button { transition:none; } }
+</style>
+</head>
+<body>
+<main class="app" aria-label="대충 계산기">
+  <header class="topline">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">÷</div>
+      <div><h1>대충 계산기<span style="color:var(--lime)">™</span></h1><div class="subtitle">수학의 새로운 가능성(?)</div></div>
+    </div>
+    <div class="status">● 정확도 미보장</div>
+  </header>
+
+  <section class="calc" aria-label="계산기 본체">
+    <div class="screen" aria-live="polite">
+      <div class="screen-head"><span>입력한 수식</span><span id="screenStatus">대기 중</span></div>
+      <div id="expression" class="expression placeholder">숫자를 눌러보셈</div>
+      <div id="result" class="result-line">= ???</div>
+      <div id="translation" class="translation">계산 결과는 계산기 마음임</div>
+    </div>
+
+    <div class="keys" id="keys">
+      <button class="muted-key" data-action="clear" aria-label="모두 지우기">AC</button>
+      <button class="muted-key" data-action="delete" aria-label="한 글자 지우기">⌫</button>
+      <button class="muted-key" data-action="percent" aria-label="퍼센트">%</button>
+      <button class="operator" data-op="÷" aria-label="나누기">÷</button>
+
+      <button data-number="7">7</button><button data-number="8">8</button><button data-number="9">9</button><button class="operator" data-op="×" aria-label="곱하기">×</button>
+      <button data-number="4">4</button><button data-number="5">5</button><button data-number="6">6</button><button class="operator" data-op="-" aria-label="빼기">−</button>
+      <button data-number="1">1</button><button data-number="2">2</button><button data-number="3">3</button><button class="operator" data-op="+" aria-label="더하기">+</button>
+      <button class="muted-key" data-action="sign" aria-label="부호 바꾸기">±</button><button class="wide" data-number="0">0</button><button data-action="decimal">.</button>
+      <button class="equals" data-action="equals">= 계산해줘</button><button class="muted-key" data-action="sample">랜덤 식</button>
+    </div>
+  </section>
+
+  <div class="hint"><span class="hint-icon">✦</span><span id="quip">계산 결과가 이상하다고요? 계산기가 아니라 당신의 상식이 이상한 걸 수도 있습니다.</span></div>
+
+  <section class="rules" aria-label="연산자 변환 규칙">
+    <div class="rules-title"><span>연산자 변환 규칙</span><small>보이는 것과 하는 일이 다름</small></div>
+    <div class="map">
+      <div class="map-item"><div class="from">+</div><div class="arrow">변신 →</div><div class="to">÷</div></div>
+      <div class="map-item"><div class="from">−</div><div class="arrow">변신 →</div><div class="to">×</div></div>
+      <div class="map-item"><div class="from">×</div><div class="arrow">변신 →</div><div class="to">+</div></div>
+      <div class="map-item"><div class="from">÷</div><div class="arrow">변신 →</div><div class="to">−</div></div>
+    </div>
+  </section>
+  <div class="footer"><strong>대충 계산기™</strong> · 결과에 대한 책임은 숫자에게 있습니다.</div>
+</main>
+<script>
+(() => {
+  const display = document.getElementById('expression');
+  const resultDisplay = document.getElementById('result');
+  const translationDisplay = document.getElementById('translation');
+  const statusDisplay = document.getElementById('screenStatus');
+  const quipDisplay = document.getElementById('quip');
+  const keys = document.getElementById('keys');
+  const operatorMap = { '+': '÷', '-': '×', '×': '+', '÷': '-' };
+  const quips = [
+    '정답입니다. 반박은 계산기 고객센터로 부탁드립니다.',
+    '수학자들이 아직 이 경지에 도달하지 못했을 뿐입니다.',
+    '계산이 끝났습니다. 상식은 잠시 꺼두셔도 좋습니다.',
+    '오차가 아닙니다. 새로운 수학의 탄생입니다.',
+    '계산기 내부 회의 결과, 이 답으로 결정됐습니다.'
+  ];
+  const samples = ['2+4', '2×4', '10-3', '12÷3', '8+2×3', '9-2÷7'];
+  let expression = '';
+  let justCalculated = false;
+
+  function currentOperator(ch) { return ['+', '-', '×', '÷'].includes(ch); }
+  function render() {
+    display.textContent = expression || '숫자를 눌러보셈';
+    display.classList.toggle('placeholder', !expression);
+    if (!justCalculated) {
+      resultDisplay.textContent = expression ? '= 계산 대기' : '= ???';
+      translationDisplay.textContent = expression ? '연산자를 바꿀 준비 중…' : '계산 결과는 계산기 마음임';
+      statusDisplay.textContent = expression ? '입력 중' : '대기 중';
+    }
+  }
+  function addNumber(num) {
+    if (justCalculated) { expression = ''; justCalculated = false; }
+    const lastChunk = expression.split(/[+\-×÷]/).pop();
+    if (num === '.' && lastChunk.includes('.')) return;
+    if (num === '.' && (!lastChunk || currentOperator(expression.slice(-1)))) num = '0.';
+    expression += num;
+    render();
+  }
+  function addOperator(op) {
+    if (!expression) {
+      if (op === '-') { expression = '-'; render(); }
+      return;
+    }
+    if (currentOperator(expression.slice(-1))) expression = expression.slice(0, -1) + op;
+    else if (expression.slice(-1) !== '.') expression += op;
+    justCalculated = false;
+    render();
+  }
+  function tokenize(source) {
+    const normalized = source.replace(/−/g, '-').replace(/\s+/g, '');
+    const tokens = [];
+    let i = 0;
+    let expectNumber = true;
+    while (i < normalized.length) {
+      if (expectNumber) {
+        let sign = '';
+        if (normalized[i] === '-') { sign = '-'; i++; }
+        const match = normalized.slice(i).match(/^\d+(?:\.\d+)?/);
+        if (!match) throw new Error('수식이 이상합니다. 숫자와 연산자만 사용해 주세요.');
+        tokens.push(Number(sign + match[0]));
+        i += match[0].length;
+        expectNumber = false;
+      } else {
+        const ch = normalized[i];
+        if (!['+', '-', '×', '÷'].includes(ch)) throw new Error('숫자와 연산자를 확인해 주세요.');
+        tokens.push(ch);
+        i++;
+        expectNumber = true;
+      }
+    }
+    if (!tokens.length || expectNumber) throw new Error('수식이 아직 끝나지 않았습니다.');
+    return tokens;
+  }
+  function toRpn(tokens) {
+    const output = [], operators = [];
+    const precedence = { '+': 1, '-': 1, '×': 2, '÷': 2 };
+    let expectNumber = true;
+    for (const token of tokens) {
+      if (typeof token === 'number') {
+        if (!expectNumber) throw new Error('숫자 사이에 연산자가 필요합니다.');
+        output.push(token); expectNumber = false;
+      } else {
+        if (expectNumber) throw new Error('연산자 위치가 이상합니다.');
+        const converted = operatorMap[token];
+        while (operators.length && precedence[operators[operators.length - 1]] >= precedence[converted]) output.push(operators.pop());
+        operators.push(converted); expectNumber = true;
+      }
+    }
+    if (expectNumber) throw new Error('마지막에 연산자가 있습니다.');
+    while (operators.length) output.push(operators.pop());
+    return output;
+  }
+  function evaluateRpn(rpn) {
+    const stack = [];
+    for (const token of rpn) {
+      if (typeof token === 'number') { stack.push(token); continue; }
+      const b = stack.pop(), a = stack.pop();
+      if (a === undefined || b === undefined) throw new Error('계산기가 길을 잃었습니다.');
+      let value;
+      if (token === '+') value = a + b;
+      else if (token === '-') value = a - b;
+      else if (token === '×') value = a * b;
+      else if (token === '÷') {
+        if (b === 0) throw new Error('0으로 나눌 수 없습니다. 계산기 자존심도 걸려 있습니다.');
+        value = a / b;
+      }
+      if (!Number.isFinite(value)) throw new Error('계산 범위를 벗어났습니다. 숫자들이 도망갔습니다.');
+      stack.push(value);
+    }
+    if (stack.length !== 1) throw new Error('수식이 완성되지 않았습니다.');
+    return stack[0];
+  }
+  function formatNumber(value) {
+    if (Object.is(value, -0)) value = 0;
+    const rounded = Number(value.toPrecision(10));
+    return rounded.toLocaleString('en-US', { maximumFractionDigits: 10, useGrouping: false });
+  }
+  function calculate() {
+    if (!expression) { quipDisplay.textContent = '먼저 숫자를 눌러주세요. 계산기도 눈치는 봅니다.'; return; }
+    try {
+      if (currentOperator(expression.slice(-1)) || expression.endsWith('.')) throw new Error('수식이 아직 끝나지 않았습니다.');
+      const tokens = tokenize(expression);
+      const convertedTokens = tokens.map(token => operatorMap[token] || token);
+      const translated = convertedTokens.join(' ').replace(/ × /g, ' × ').replace(/ ÷ /g, ' ÷ ');
+      const value = evaluateRpn(toRpn(tokens));
+      resultDisplay.textContent = '= ' + formatNumber(value);
+      translationDisplay.textContent = '실제 계산: ' + translated;
+      statusDisplay.textContent = '계산 완료';
+      quipDisplay.textContent = quips[Math.floor(Math.random() * quips.length)];
+      justCalculated = true;
+    } catch (error) {
+      resultDisplay.textContent = '= 어라?';
+      translationDisplay.textContent = error.message;
+      statusDisplay.textContent = '계산 실패';
+      quipDisplay.textContent = '계산기 측에서 계산을 거부했습니다. 사용자 잘못은 아닐 수도 있습니다.';
+      justCalculated = true;
+    }
+  }
+  function clearAll() {
+    expression = ''; justCalculated = false; render();
+    quipDisplay.textContent = '계산 결과가 이상하다고요? 계산기가 아니라 당신의 상식이 이상한 걸 수도 있습니다.';
+  }
+  function deleteOne() {
+    if (justCalculated) { expression = ''; justCalculated = false; }
+    else expression = expression.slice(0, -1);
+    render();
+  }
+  function percent() {
+    if (!expression || currentOperator(expression.slice(-1))) return;
+    const match = expression.match(/(\d+(?:\.\d+)?)$/);
+    if (match) expression = expression.slice(0, -match[0].length) + String(Number(match[0]) / 100);
+    justCalculated = false; render();
+  }
+  function toggleSign() {
+    if (!expression) { expression = '-'; render(); return; }
+    if (currentOperator(expression.slice(-1))) return;
+    const match = expression.match(/(\d+(?:\.\d+)?)$/);
+    if (!match) return;
+    const before = expression.slice(0, -match[0].length);
+    const hasUnaryMinus = before.endsWith('-') && (before.length === 1 || currentOperator(before[before.length - 2]));
+    expression = hasUnaryMinus ? before.slice(0, -1) + match[0] : before + '-' + match[0];
+    justCalculated = false; render();
+  }
+  function loadSample() {
+    expression = samples[Math.floor(Math.random() * samples.length)];
+    justCalculated = false; render();
+    quipDisplay.textContent = '랜덤 식 도착! 답이 이상해도 환불은 안 됩니다.';
+  }
+  keys.addEventListener('click', event => {
+    const button = event.target.closest('button');
+    if (!button) return;
+    if (button.dataset.number !== undefined) addNumber(button.dataset.number);
+    else if (button.dataset.op) addOperator(button.dataset.op);
+    else switch (button.dataset.action) {
+      case 'clear': clearAll(); break;
+      case 'delete': deleteOne(); break;
+      case 'percent': percent(); break;
+      case 'decimal': addNumber('.'); break;
+      case 'sign': toggleSign(); break;
+      case 'equals': calculate(); break;
+      case 'sample': loadSample(); break;
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (/^\d$/.test(event.key)) addNumber(event.key);
+    else if (event.key === '.') addNumber('.');
+    else if (event.key === '+') addOperator('+');
+    else if (event.key === '-') addOperator('-');
+    else if (event.key === '*') addOperator('×');
+    else if (event.key === '/') { event.preventDefault(); addOperator('÷'); }
+    else if (event.key === 'Enter' || event.key === '=') { event.preventDefault(); calculate(); }
+    else if (event.key === 'Backspace') deleteOne();
+    else if (event.key === 'Escape') clearAll();
+  });
+  render();
+})();
+</script>
+</body>
+</html>
